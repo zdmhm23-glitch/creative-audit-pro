@@ -54,7 +54,7 @@ export default function AdminPage(){
           <p className="text-xs text-zinc-500 text-center mt-2">ادخل كلمة سر الإدارة</p>
           <input type="password" value={pass} onChange={e=>setPass(e.target.value)} placeholder="ADMIN_PASSWORD" className="w-full mt-6 bg-[#0a0a0b] border border-zinc-800 rounded-xl p-3 text-sm" />
           <button onClick={login} className="w-full mt-3 bg-[#D4FF32] text-black font-black py-3 rounded-xl">دخول</button>
-          <p className="text-[10px] text-zinc-600 mt-4 text-center">كلمة السر موجودة في .env.local > ADMIN_PASSWORD</p>
+          <p className="text-xs text-zinc-600 mt-4 text-center">كلمة السر في الاعدادات</p>
         </div>
       </main>
     );
