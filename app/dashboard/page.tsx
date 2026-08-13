@@ -12,7 +12,6 @@ async function extractVideoFrames(file: File, count = 6): Promise<string[]> {
     video.src = url;
     video.muted = true;
     video.playsInline = true;
-    video.crossOrigin = "anonymous";
 
     const cleanup = () => URL.revokeObjectURL(url);
 
@@ -237,16 +236,10 @@ export default function Dashboard() {
         <button onClick={async () => { await supabase.auth.signOut(); router.push("/"); }} className="text-xs bg-zinc-900 border border-zinc-800 px-4 py-2 rounded-full">خروج</button>
       </header>
 
-      {!isPro && (
-        <div className="bg-[#D4FF32] text-black rounded-2xl p-4 flex justify-between items-center mb-6">
-          <div><b>انتهت محاولاتك المجانية؟</b> <span className="text-sm">اشترك بـ 1900 دج / شهر تحليلات غير محدودة</span></div>
-          <div className="flex gap-2"><a href="#pay" className="bg-black text-white px-4 py-2 rounded-full text-sm font-bold">ادفع عبر BaridiMob</a></div>
-        </div>
-      )}
-
       <div className="grid md:grid-cols-[380px_1fr_280px] gap-5">
         <div className="bg-[#141416] border border-zinc-800 rounded-2xl p-5 h-fit">
           <h3 className="font-bold mb-3">ارفع الكرياتيف</h3>
+
           <div onClick={() => fileRef.current?.click()} className="border-2 border-dashed border-zinc-700 rounded-xl h-[220px] flex flex-col items-center justify-center cursor-pointer bg-[#0a0a0b] overflow-hidden">
             {mediaPreview ? (
               mediaType === "image" ? (
@@ -271,20 +264,27 @@ export default function Dashboard() {
             </div>
           )}
 
-          <select value={platform} onChange={e => setPlatform(e.target.value)} className="w-full mt-3 bg-[#0a0a0b] border border-zinc-800 rounded-xl p-3 text-sm"><option>فيسبوك</option><option>تيك توك</option><option>انستغرام</option></select>
-          <div className="grid grid-cols-2 gap-2 mt-2">
-            <select value={goal} onChange={e => setGoal(e.target.value)} className="bg-[#0a0a0b] border border-zinc-800 rounded-xl p-3 text-sm"><option>مبيعات</option><option>رسائل</option></select>
-            <select value={niche} onChange={e => setNiche(e.target.value)} className="bg-[#0a0a0b] border border-zinc-800 rounded-xl p-3 text-sm"><option>متجر الكتروني</option><option>تجميلي</option><option>عقارات</option></select>
-          </div>
-          <button onClick={analyze} disabled={loading} className="w-full mt-3 bg-[#D4FF32] text-black font-black py-3 rounded-xl">{loading ? "جاري التحليل..." : "حلل الآن ⚡"}</button>
+          <select value={platform} onChange={e => setPlatform(e.target.value)} className="w-full mt-3 bg-[#0a0a0b] border border-zinc-800 rounded-xl p-3 text-sm">
+            <option>فيسبوك</option>
+            <option>تيك توك</option>
+            <option>انستغرام</option>
+          </select>
 
-          <div className="mt-6 border-t border-zinc-800 pt-4">
-            <p className="text-xs font-bold mb-2">عندك كوبون؟</p>
-            <div className="flex gap-2">
-              <input value={coupon} onChange={e => setCoupon(e.target.value)} placeholder="HATEM50" className="flex-1 bg-[#0a0a0b] border border-zinc-800 rounded-xl p-2.5 text-sm" />
-              <button onClick={applyCoupon} className="bg-white text-black px-4 rounded-xl text-sm font-bold">تفعيل</button>
-            </div>
+          <div className="grid grid-cols-2 gap-2 mt-2">
+            <select value={goal} onChange={e => setGoal(e.target.value)} className="bg-[#0a0a0b] border border-zinc-800 rounded-xl p-3 text-sm">
+              <option>مبيعات</option>
+              <option>رسائل</option>
+            </select>
+            <select value={niche} onChange={e => setNiche(e.target.value)} className="bg-[#0a0a0b] border border-zinc-800 rounded-xl p-3 text-sm">
+              <option>متجر الكتروني</option>
+              <option>تجميلي</option>
+              <option>عقارات</option>
+            </select>
           </div>
+
+          <button onClick={analyze} disabled={loading} className="w-full mt-3 bg-[#D4FF32] text-black font-black py-3 rounded-xl">
+            {loading ? "جاري التحليل..." : "حلل الآن ⚡"}
+          </button>
         </div>
 
         <div className="bg-[#141416] border border-zinc-800 rounded-2xl p-6 min-h-[500px]">
@@ -293,14 +293,22 @@ export default function Dashboard() {
           {result && (
             <div>
               <div className="flex gap-4 items-center mb-6">
-                <div className="w-20 h-20 rounded-full bg-zinc-900 flex items-center justify-center text-2xl font-black border-4 border-[#D4FF32]">{result.overall_score}</div>
-                <div><h2 className="font-black text-xl">{result.verdict}</h2><p className="text-xs text-zinc-500">{result.overall_score >= 80 ? "جاهز للإطلاق" : "يحتاج تعديلات"}</p></div>
+                <div className="w-20 h-20 rounded-full bg-zinc-900 flex items-center justify-center text-2xl font-black border-4 border-[#D4FF32]">
+                  {result.overall_score}
+                </div>
+                <div>
+                  <h2 className="font-black text-xl">{result.verdict}</h2>
+                  <p className="text-xs text-zinc-500">{result.overall_score >= 80 ? "جاهز للإطلاق" : "يحتاج تعديلات"}</p>
+                </div>
               </div>
-              <div className="grid grid-cols-3 gap-2 mb-6">{Object.entries(result.metrics || {}).map(([k, v]: any) => <div key={k} className="bg-[#0a0a0b] border border-zinc-800 rounded-lg p-3 text-center"><div className="text-[10px] text-zinc-500">{k}</div><div className="font-black">{v}/10</div></div>)}</div>
-              <div className="space-y-3 text-sm">
-                <div className="bg-red-950/20 border border-red-900/30 rounded-xl p-3"><b className="text-red-300 text-xs">🚨 مشاكل:</b><ul className="mt-1">{result.critical_issues?.map((x: string, i: number) => <li key={i}>• {x}</li>)}</ul></div>
-                <div className="bg-lime-950/20 border border-lime-900/30 rounded-xl p-3"><b className="text-lime-300 text-xs">💡 توصيات:</b><ul className="mt-1">{result.recommendations?.map((x: string, i: number) => <li key={i}>• {x}</li>)}</ul></div>
-                <div className="bg-[#0a0a0b] border border-zinc-800 rounded-xl p-3"><b className="text-xs">🔥 هوكات:</b><div className="mt-2 space-y-1">{result.hooks?.map((h: string, i: number) => <div key={i} className="bg-[#141416] p-2 rounded-lg text-xs">• {h}</div>)}</div></div>
+
+              <div className="grid grid-cols-3 gap-2 mb-6">
+                {Object.entries(result.metrics || {}).map(([k, v]: any) => (
+                  <div key={k} className="bg-[#0a0a0b] border border-zinc-800 rounded-lg p-3 text-center">
+                    <div className="text-[10px] text-zinc-500">{k}</div>
+                    <div className="font-black">{v}/10</div>
+                  </div>
+                ))}
               </div>
             </div>
           )}
@@ -310,7 +318,15 @@ export default function Dashboard() {
           <h3 className="font-bold text-sm mb-4">📜 آخر تحليلاتك</h3>
           <div className="space-y-2">
             {history.length === 0 && <p className="text-xs text-zinc-600">لا يوجد بعد</p>}
-            {history.map((h: any) => <div key={h.id} className="bg-[#0a0a0b] border border-zinc-800 rounded-xl p-3"><div className="flex justify-between text-xs"><span>{h.platform}</span><span className="font-black text-[#D4FF32]">{h.overall_score}/100</span></div><div className="text-[11px] text-zinc-500 mt-1">{new Date(h.created_at).toLocaleDateString("ar-DZ")}</div></div>)}
+            {history.map((h: any) => (
+              <div key={h.id} className="bg-[#0a0a0b] border border-zinc-800 rounded-xl p-3">
+                <div className="flex justify-between text-xs">
+                  <span>{h.platform}</span>
+                  <span className="font-black text-[#D4FF32]">{h.overall_score}/100</span>
+                </div>
+                <div className="text-[11px] text-zinc-500 mt-1">{new Date(h.created_at).toLocaleDateString("ar-DZ")}</div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
