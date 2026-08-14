@@ -13,9 +13,7 @@ async function extractVideoFrames(file: File, count = 6): Promise<string[]> {
     video.muted = true;
     video.playsInline = true;
     video.preload = "metadata";
-
     const cleanup = () => URL.revokeObjectURL(url);
-
     video.onloadedmetadata = async () => {
       try {
         const duration = Math.max(video.duration || 0, 1);
@@ -24,14 +22,12 @@ async function extractVideoFrames(file: File, count = 6): Promise<string[]> {
         canvas.height = video.videoHeight || 720;
         const ctx = canvas.getContext("2d");
         if (!ctx) throw new Error("فشل إنشاء canvas");
-
         const frames: string[] = [];
         const positions = Array.from({ length: count }, (_, i) => {
           if (count === 1) return 0.5;
           const ratio = i / (count - 1);
           return Math.min(duration - 0.1, Math.max(0.1, ratio * duration));
         });
-
         const seekTo = (time: number) =>
           new Promise<void>((resolveSeek, rejectSeek) => {
             const onSeeked = () => {
@@ -48,13 +44,11 @@ async function extractVideoFrames(file: File, count = 6): Promise<string[]> {
             video.addEventListener("error", onError, { once: true });
             video.currentTime = time;
           });
-
         for (const t of positions) {
           await seekTo(t);
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
           frames.push(canvas.toDataURL("image/jpeg", 0.82));
         }
-
         cleanup();
         resolve(frames);
       } catch (error) {
@@ -62,43 +56,51 @@ async function extractVideoFrames(file: File, count = 6): Promise<string[]> {
         reject(error);
       }
     };
-
     video.onerror = () => {
       cleanup();
       reject(new Error("فشل تحميل الفيديو"));
     };
   });
 }
-
 export default function Dashboard() {
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
+
+  const [compareMode, setCompareMode] = useState(false);
+
   const [mediaPreview, setMediaPreview] = useState<string | null>(null);
   const [mediaType, setMediaType] = useState<MediaType>(null);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [videoFrames, setVideoFrames] = useState<string[]>([]);
+
+  const [mediaPreviewB, setMediaPreviewB] = useState<string | null>(null);
+  const [mediaTypeB, setMediaTypeB] = useState<MediaType>(null);
+  const [imageBase64B, setImageBase64B] = useState<string | null>(null);
+  const [videoFramesB, setVideoFramesB] = useState<string[]>([]);
+
   const [platform, setPlatform] = useState("فيسبوك");
   const [goal, setGoal] = useState("مبيعات");
   const [niche, setNiche] = useState("متجر الكتروني");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
+  const [resultB, setResultB] = useState<any>(null);
+  const [comparison, setComparison] = useState<any>(null);
   const [history, setHistory] = useState<any[]>([]);
   const [coupon, setCoupon] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+  const fileRefB = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data }) => {
       if (!data.user) return router.push("/auth");
       setUser(data.user);
-
       const { data: prof } = await supabase
         .from("profiles")
         .select("*")
         .eq("id", data.user.id)
         .single();
       setProfile(prof);
-
       const { data: hist } = await supabase
         .from("analyses")
         .select("*")
@@ -109,103 +111,162 @@ export default function Dashboard() {
     });
   }, [router]);
 
-  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-
+  const readFile = (
+    f: File,
+    setPreview: (v: string | null) => void,
+    setType: (v: MediaType) => void,
+    setImg: (v: string | null) => void,
+    setFrames: (v: string[]) => void
+  ) => {
     const isImage = f.type.startsWith("image/");
     const isVideo = f.type.startsWith("video/");
-
     if (!isImage && !isVideo) {
       alert("الملف يجب أن يكون صورة أو فيديو");
       return;
     }
-
-    setResult(null);
-    setVideoFrames([]);
-    setImageBase64(null);
-
+    setFrames([]);
+    setImg(null);
     if (isImage) {
       if (f.size > 10 * 1024 * 1024) {
         alert("حجم الصورة كبير جدًا. اختر صورة أقل من 10MB");
         return;
       }
-
       const reader = new FileReader();
       reader.onload = () => {
         const data = reader.result as string;
-        setMediaPreview(data);
-        setImageBase64(data);
-        setMediaType("image");
+        setPreview(data);
+        setImg(data);
+        setType("image");
       };
       reader.readAsDataURL(f);
       return;
     }
-
     if (f.size > 40 * 1024 * 1024) {
       alert("حجم الفيديو كبير جدًا. اختر فيديو أقل من 40MB");
       return;
     }
-
     const objectUrl = URL.createObjectURL(f);
-    setMediaPreview(objectUrl);
-    setMediaType("video");
+    setPreview(objectUrl);
+    setType("video");
+    extractVideoFrames(f, 6)
+      .then(setFrames)
+      .catch((err: any) => alert(err.message || "فشل استخراج لقطات من الفيديو"));
+  };
 
-    try {
-      const frames = await extractVideoFrames(f, 6);
-      setVideoFrames(frames);
-    } catch (err: any) {
-      alert(err.message || "فشل استخراج لقطات من الفيديو");
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setResult(null);
+    setComparison(null);
+    readFile(f, setMediaPreview, setMediaType, setImageBase64, setVideoFrames);
+  };
+
+  const handleFileB = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setResultB(null);
+    setComparison(null);
+    readFile(f, setMediaPreviewB, setMediaTypeB, setImageBase64B, setVideoFramesB);
+  };
+
+  const runAnalysis = async (
+    type: MediaType,
+    img: string | null,
+    frames: string[]
+  ) => {
+    const res = await fetch("/api/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        mediaType: type,
+        imageBase64: img,
+        frames: type === "video" ? frames : [],
+        platform,
+        goal,
+        niche,
+        userId: user.id,
+      }),
+    });
+    const contentType = res.headers.get("content-type") || "";
+    const raw = await res.text();
+    const data = contentType.includes("application/json") ? JSON.parse(raw) : { error: raw };
+    if (!res.ok) {
+      throw new Error(data.error || "خطأ أثناء التحليل");
     }
+    return data;
+  };
+
+  const buildLocalComparison = (a: any, b: any) => {
+    if (!a || !b) return null;
+    const scoreA = a.overall_score ?? 0;
+    const scoreB = b.overall_score ?? 0;
+    const winner = scoreA === scoreB ? "تعادل" : scoreA > scoreB ? "الكرياتيف A" : "الكرياتيف B";
+    const metricsA = a.metrics || {};
+    const metricsB = b.metrics || {};
+    const keys = Array.from(new Set([...Object.keys(metricsA), ...Object.keys(metricsB)]));
+    const metricsDiff = keys.map((k) => ({
+      metric: k,
+      a: metricsA[k] ?? null,
+      b: metricsB[k] ?? null,
+    }));
+    return {
+      winner,
+      scoreA,
+      scoreB,
+      metricsDiff,
+      note:
+        "هذه مقارنة أولية مبنية على النتائج المتوفرة. سيتم تفعيل اقتراحات ذكاء اصطناعي أعمق لاحقًا.",
+    };
   };
 
   const analyze = async () => {
     if (!mediaType) return alert("ارفع الكرياتيف");
-
+    if (compareMode && !mediaTypeB) return alert("ارفع الكرياتيف الثاني للمقارنة");
     if (profile?.subscription_status !== "pro" && profile?.credits <= 0) {
       return alert("انتهت محاولاتك المجانية! جدد الاشتراك بـ 1900 دج");
     }
-
     if (mediaType === "image" && !imageBase64) {
       return alert("الصورة غير جاهزة للتحليل");
     }
-
     if (mediaType === "video" && videoFrames.length === 0) {
       return alert("تعذر تجهيز لقطات الفيديو للتحليل");
     }
-
+    if (compareMode) {
+      if (mediaTypeB === "image" && !imageBase64B) {
+        return alert("الصورة الثانية غير جاهزة للتحليل");
+      }
+      if (mediaTypeB === "video" && videoFramesB.length === 0) {
+        return alert("تعذر تجهيز لقطات الفيديو الثاني للتحليل");
+      }
+    }
     setLoading(true);
     setResult(null);
-
+    setResultB(null);
+    setComparison(null);
     try {
-      const res = await fetch("/api/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          mediaType,
-          imageBase64,
-          frames: mediaType === "video" ? videoFrames : [],
-          platform,
-          goal,
-          niche,
-          userId: user.id,
-        }),
-      });
-
-      const contentType = res.headers.get("content-type") || "";
-      const raw = await res.text();
-      const data = contentType.includes("application/json") ? JSON.parse(raw) : { error: raw };
-
-      if (!res.ok) {
-        throw new Error(data.error || "خطأ أثناء التحليل");
-      }
-
-      setResult(data.analysis);
+      const dataA = await runAnalysis(mediaType, imageBase64, videoFrames);
+      setResult(dataA.analysis);
       setProfile((p: any) => ({
         ...p,
-        credits: data.remainingCredits,
-        subscription_status: data.subscription_status,
+        credits: dataA.remainingCredits,
+        subscription_status: dataA.subscription_status,
       }));
+
+      let analysisB: any = null;
+      if (compareMode) {
+        const dataB = await runAnalysis(mediaTypeB, imageBase64B, videoFramesB);
+        analysisB = dataB.analysis;
+        setResultB(analysisB);
+        setProfile((p: any) => ({
+          ...p,
+          credits: dataB.remainingCredits,
+          subscription_status: dataB.subscription_status,
+        }));
+      }
+
+      if (compareMode && analysisB) {
+        setComparison(buildLocalComparison(dataA.analysis, analysisB));
+      }
 
       const { data: hist } = await supabase
         .from("analyses")
@@ -223,16 +284,13 @@ export default function Dashboard() {
 
   const applyCoupon = async () => {
     if (!coupon) return;
-
     const res = await fetch("/api/coupon", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ code: coupon, userId: user.id }),
     });
-
     const data = await res.json();
     if (!res.ok) return alert(data.error);
-
     alert(data.message);
     setProfile((p: any) => ({
       ...p,
@@ -251,6 +309,91 @@ export default function Dashboard() {
     profile.subscription_status === "pro" &&
     new Date(profile.subscription_expires_at) > new Date();
 
+  const renderUploadBox = (
+    preview: string | null,
+    type: MediaType,
+    frames: string[],
+    ref: React.RefObject<HTMLInputElement>,
+    onChange: (e: React.ChangeEvent<HTMLInputElement>) => void,
+    label: string
+  ) => (
+    <div>
+      <p className="text-xs text-zinc-500 mb-2">{label}</p>
+      <div
+        onClick={() => ref.current?.click()}
+        className="border-2 border-dashed border-zinc-700 rounded-xl h-[180px] flex flex-col items-center justify-center cursor-pointer bg-[#0a0a0b] overflow-hidden"
+      >
+        {preview ? (
+          type === "image" ? (
+            <img src={preview} alt="preview" className="w-full h-full object-contain" />
+          ) : (
+            <video src={preview} className="w-full h-full object-contain" controls />
+          )
+        ) : (
+          <>
+            <span className="text-3xl">+</span>
+            <span className="text-xs text-zinc-500">PNG, JPG, MP4</span>
+          </>
+        )}
+        <input ref={ref} type="file" hidden accept="image/*,video/mp4,video/*" onChange={onChange} />
+      </div>
+      {type === "video" && frames.length > 0 && (
+        <div className="grid grid-cols-3 gap-2 mt-3">
+          {frames.map((frame, i) => (
+            <img
+              key={i}
+              src={frame}
+              alt={`frame-${i + 1}`}
+              className="w-full h-16 object-cover rounded-lg border border-zinc-800"
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  const renderResultBlock = (label: string, res: any) => (
+    <div>
+      <div className="flex gap-3 items-center mb-4">
+        <div className="w-14 h-14 rounded-full bg-zinc-900 flex items-center justify-center text-lg font-black border-4 border-[#D4FF32]">
+          {res.overall_score}
+        </div>
+        <div>
+          <h2 className="font-black text-sm">{label}: {res.verdict}</h2>
+          <p className="text-[11px] text-zinc-500">
+            {res.overall_score >= 80 ? "جاهز للإطلاق" : "يحتاج تعديلات"}
+          </p>
+        </div>
+      </div>
+      <div className="grid grid-cols-3 gap-2 mb-4">
+        {Object.entries(res.metrics || {}).map(([k, v]: any) => (
+          <div key={k} className="bg-[#0a0a0b] border border-zinc-800 rounded-lg p-2 text-center">
+            <div className="text-[9px] text-zinc-500">{k}</div>
+            <div className="font-black text-sm">{String(v ?? "—")}/10</div>
+          </div>
+        ))}
+      </div>
+      <div className="space-y-2 text-xs">
+        <div className="bg-red-950/20 border border-red-900/30 rounded-xl p-3">
+          <b className="text-red-300 text-xs">🚨 مشاكل:</b>
+          <ul className="mt-1">
+            {(res.critical_issues || []).map((x: string, i: number) => (
+              <li key={i}>• {x}</li>
+            ))}
+          </ul>
+        </div>
+        <div className="bg-lime-950/20 border border-lime-900/30 rounded-xl p-3">
+          <b className="text-lime-300 text-xs">💡 توصيات:</b>
+          <ul className="mt-1">
+            {(res.recommendations || []).map((x: string, i: number) => (
+              <li key={i}>• {x}</li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <main className="min-h-screen p-4 md:p-6 max-w-7xl mx-auto">
       <header className="flex justify-between items-center border-b border-zinc-800 pb-4 mb-6">
@@ -265,7 +408,6 @@ export default function Dashboard() {
             {isPro ? "PRO" : `${profile.credits} محاولات`}
           </span>
         </div>
-
         <button
           onClick={async () => {
             await supabase.auth.signOut();
@@ -293,44 +435,41 @@ export default function Dashboard() {
 
       <div className="grid md:grid-cols-[380px_1fr_280px] gap-5">
         <div className="bg-[#141416] border border-zinc-800 rounded-2xl p-5 h-fit">
-          <h3 className="font-bold mb-3">ارفع الكرياتيف</h3>
-
-          <div
-            onClick={() => fileRef.current?.click()}
-            className="border-2 border-dashed border-zinc-700 rounded-xl h-[220px] flex flex-col items-center justify-center cursor-pointer bg-[#0a0a0b] overflow-hidden"
-          >
-            {mediaPreview ? (
-              mediaType === "image" ? (
-                <img src={mediaPreview} alt="preview" className="w-full h-full object-contain" />
-              ) : (
-                <video src={mediaPreview} className="w-full h-full object-contain" controls />
-              )
-            ) : (
-              <>
-                <span className="text-3xl">+</span>
-                <span className="text-xs text-zinc-500">PNG, JPG, MP4</span>
-              </>
-            )}
-
-            <input
-              ref={fileRef}
-              type="file"
-              hidden
-              accept="image/*,video/mp4,video/*"
-              onChange={handleFile}
-            />
+          <div className="flex justify-between items-center mb-3">
+            <h3 className="font-bold">ارفع الكرياتيف</h3>
+            <label className="flex items-center gap-2 text-xs text-zinc-400 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={compareMode}
+                onChange={(e) => {
+                  setCompareMode(e.target.checked);
+                  setComparison(null);
+                  setResultB(null);
+                }}
+              />
+              وضع المقارنة
+            </label>
           </div>
 
-          {mediaType === "video" && videoFrames.length > 0 && (
-            <div className="grid grid-cols-3 gap-2 mt-3">
-              {videoFrames.map((frame, i) => (
-                <img
-                  key={i}
-                  src={frame}
-                  alt={`frame-${i + 1}`}
-                  className="w-full h-20 object-cover rounded-lg border border-zinc-800"
-                />
-              ))}
+          {renderUploadBox(
+            mediaPreview,
+            mediaType,
+            videoFrames,
+            fileRef,
+            handleFile,
+            compareMode ? "الكرياتيف A" : "الكرياتيف"
+          )}
+
+          {compareMode && (
+            <div className="mt-4">
+              {renderUploadBox(
+                mediaPreviewB,
+                mediaTypeB,
+                videoFramesB,
+                fileRefB,
+                handleFileB,
+                "الكرياتيف B (للمقارنة)"
+              )}
             </div>
           )}
 
@@ -343,7 +482,6 @@ export default function Dashboard() {
             <option>تيك توك</option>
             <option>انستغرام</option>
           </select>
-
           <div className="grid grid-cols-2 gap-2 mt-2">
             <select
               value={goal}
@@ -353,7 +491,6 @@ export default function Dashboard() {
               <option>مبيعات</option>
               <option>رسائل</option>
             </select>
-
             <select
               value={niche}
               onChange={(e) => setNiche(e.target.value)}
@@ -364,13 +501,12 @@ export default function Dashboard() {
               <option>عقارات</option>
             </select>
           </div>
-
           <button
             onClick={analyze}
             disabled={loading}
             className="w-full mt-3 bg-[#D4FF32] text-black font-black py-3 rounded-xl"
           >
-            {loading ? "جاري التحليل..." : "حلل الآن ⚡"}
+            {loading ? "جاري التحليل..." : compareMode ? "قارن الآن ⚡" : "حلل الآن ⚡"}
           </button>
 
           <div className="mt-6 border-t border-zinc-800 pt-4">
@@ -414,67 +550,45 @@ export default function Dashboard() {
           {!result && !loading && (
             <div className="text-center py-24 text-zinc-500 text-sm">النتائج ستظهر هنا</div>
           )}
-
           {loading && (
             <div className="text-center py-24">
               <div className="animate-spin w-8 h-8 border-2 border-[#D4FF32] border-t-transparent rounded-full mx-auto mb-3"></div>
               <p className="text-sm">نحلل بالذكاء الاصطناعي...</p>
             </div>
           )}
-
-          {result && (
+          {result && !compareMode && (
+            <div>{renderResultBlock("النتيجة", result)}</div>
+          )}
+          {result && compareMode && (
             <div>
-              <div className="flex gap-4 items-center mb-6">
-                <div className="w-20 h-20 rounded-full bg-zinc-900 flex items-center justify-center text-2xl font-black border-4 border-[#D4FF32]">
-                  {result.overall_score}
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="bg-[#0a0a0b] border border-zinc-800 rounded-xl p-4">
+                  {renderResultBlock("الكرياتيف A", result)}
                 </div>
-                <div>
-                  <h2 className="font-black text-xl">{result.verdict}</h2>
-                  <p className="text-xs text-zinc-500">
-                    {result.overall_score >= 80 ? "جاهز للإطلاق" : "يحتاج تعديلات"}
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-2 mb-6">
-                {Object.entries(result.metrics || {}).map(([k, v]: any) => (
-                  <div key={k} className="bg-[#0a0a0b] border border-zinc-800 rounded-lg p-3 text-center">
-                    <div className="text-[10px] text-zinc-500">{k}</div>
-                    <div className="font-black">{String(v ?? "—")}/10</div>
+                {resultB && (
+                  <div className="bg-[#0a0a0b] border border-zinc-800 rounded-xl p-4">
+                    {renderResultBlock("الكرياتيف B", resultB)}
                   </div>
-                ))}
+                )}
               </div>
 
-              <div className="space-y-3 text-sm">
-                <div className="bg-red-950/20 border border-red-900/30 rounded-xl p-3">
-                  <b className="text-red-300 text-xs">🚨 مشاكل:</b>
-                  <ul className="mt-1">
-                    {(result.critical_issues || []).map((x: string, i: number) => (
-                      <li key={i}>• {x}</li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div className="bg-lime-950/20 border border-lime-900/30 rounded-xl p-3">
-                  <b className="text-lime-300 text-xs">💡 توصيات:</b>
-                  <ul className="mt-1">
-                    {(result.recommendations || []).map((x: string, i: number) => (
-                      <li key={i}>• {x}</li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div className="bg-[#0a0a0b] border border-zinc-800 rounded-xl p-3">
-                  <b className="text-xs">🔥 هوكات:</b>
-                  <div className="mt-2 space-y-1">
-                    {(result.hooks || []).map((h: string, i: number) => (
-                      <div key={i} className="bg-[#141416] p-2 rounded-lg text-xs">
-                        • {h}
+              {comparison && (
+                <div className="mt-6 bg-[#0a0a0b] border border-[#D4FF32]/40 rounded-xl p-4">
+                  <h3 className="font-black text-sm mb-3">🤖 اقتراح المقارنة (قريبًا: ذكاء اصطناعي)</h3>
+                  <p className="text-xs text-zinc-400 mb-3">
+                    الأفضل حاليًا: <b className="text-[#D4FF32]">{comparison.winner}</b> ({comparison.scoreA} مقابل {comparison.scoreB})
+                  </p>
+                  <div className="space-y-1 text-xs mb-3">
+                    {comparison.metricsDiff.map((m: any) => (
+                      <div key={m.metric} className="flex justify-between bg-[#141416] rounded-lg p-2">
+                        <span className="text-zinc-400">{m.metric}</span>
+                        <span>A: {String(m.a ?? "—")} | B: {String(m.b ?? "—")}</span>
                       </div>
                     ))}
                   </div>
+                  <p className="text-[11px] text-zinc-500 italic">{comparison.note}</p>
                 </div>
-              </div>
+              )}
             </div>
           )}
         </div>
