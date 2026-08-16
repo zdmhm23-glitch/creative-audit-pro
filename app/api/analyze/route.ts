@@ -53,8 +53,39 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "OPENAI_API_KEY missing" }, { status: 500 });
     }
 
+    const { data: previousAnalyses } = await supabaseAdmin
+      .from("analyses")
+      .select("platform, goal, niche, overall_score, result, created_at, media_type")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(12);
+
+    const compactHistory = (previousAnalyses || []).map((item: any) => ({
+      platform: item.platform,
+      goal: item.goal,
+      niche: item.niche,
+      overall_score: item.overall_score,
+      media_type: item.media_type || null,
+      verdict: item.result?.verdict || null,
+      critical_issues: item.result?.critical_issues || [],
+      recommendations: item.result?.recommendations || [],
+      metrics: item.result?.metrics || {},
+      created_at: item.created_at,
+    }));
+
     const prompt = isVideo
-      ? `أنت خبير تحليل إعلانات فيديو. حلل فقط ما يظهر بوضوح في هذه اللقطات المتتالية من فيديو إعلاني. لا تخمّن ولا تفترض عناصر غير موجودة. إذا لم يكن هناك نص واضح فلا تقل إن النص كثير. إذا لم يوجد CTA واضح فاذكر أنه غير ظاهر. إذا كانت المعلومة غير مؤكدة ضع null بدل التخمين. أرجع JSON فقط بهذا الشكل:
+      ? `أنت خبير Creative Strategy وتحليل إعلانات فيديو. حلل فقط ما يظهر بوضوح في اللقطات المرفقة. لا تخمّن ولا تفترض عناصر غير موجودة. ثم قارن هذا التحليل مع سجل التحليلات السابقة للمستخدم. المطلوب أن تكون الاقتراحات دقيقة، تنفيذية، ومبنية على الأنماط المتكررة في الحساب. إذا لم تكن المعلومة مؤكدة ضع null بدل التخمين.
+
+بيانات الإعلان الحالي:
+- المنصة: ${platform}
+- الهدف: ${goal}
+- المجال: ${niche}
+- نوع المحتوى: فيديو
+
+سجل التحليلات السابقة:
+${JSON.stringify(compactHistory)}
+
+أرجع JSON فقط بهذا الشكل:
 {
   "overall_score": 0,
   "verdict": "",
@@ -71,9 +102,25 @@ export async function POST(req: NextRequest) {
   },
   "critical_issues": [],
   "recommendations": [],
-  "hooks": []
+  "hooks": [],
+  "smartSuggestions": {
+    "repeated_patterns": [],
+    "priority_actions": [],
+    "next_creative_ideas": []
+  }
 }`
-      : `أنت خبير تحليل إعلانات صور. حلل فقط ما يظهر بوضوح في الصورة. لا تخمّن ولا تفترض عناصر غير موجودة. إذا لم يكن هناك نص واضح فلا تقل إن النص كثير. إذا لم يوجد CTA واضح فاذكر أنه غير ظاهر. إذا كانت المعلومة غير مؤكدة ضع null بدل التخمين. أرجع JSON فقط بهذا الشكل:
+      : `أنت خبير Creative Strategy وتحليل إعلانات صور. حلل فقط ما يظهر بوضوح في الصورة المرفقة. لا تخمّن ولا تفترض عناصر غير موجودة. ثم قارن هذا التحليل مع سجل التحليلات السابقة للمستخدم. المطلوب أن تكون الاقتراحات دقيقة، تنفيذية، ومبنية على الأنماط المتكررة في الحساب. إذا لم تكن المعلومة مؤكدة ضع null بدل التخمين.
+
+بيانات الإعلان الحالي:
+- المنصة: ${platform}
+- الهدف: ${goal}
+- المجال: ${niche}
+- نوع المحتوى: صورة
+
+سجل التحليلات السابقة:
+${JSON.stringify(compactHistory)}
+
+أرجع JSON فقط بهذا الشكل:
 {
   "overall_score": 0,
   "verdict": "",
@@ -90,7 +137,12 @@ export async function POST(req: NextRequest) {
   },
   "critical_issues": [],
   "recommendations": [],
-  "hooks": []
+  "hooks": [],
+  "smartSuggestions": {
+    "repeated_patterns": [],
+    "priority_actions": [],
+    "next_creative_ideas": []
+  }
 }`;
 
     const content: any[] = [{ type: "text", text: prompt }];
@@ -107,7 +159,7 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify({
         model: "gpt-4o-mini",
         messages: [{ role: "user", content }],
-        max_tokens: 800,
+        max_tokens: 1200,
       }),
     });
 
@@ -165,6 +217,14 @@ export async function POST(req: NextRequest) {
         { error: "تعذر قراءة JSON القادم من OpenAI" },
         { status: 502 }
       );
+    }
+
+    if (!analysis.smartSuggestions) {
+      analysis.smartSuggestions = {
+        repeated_patterns: [],
+        priority_actions: [],
+        next_creative_ideas: [],
+      };
     }
 
     const { error: insertError } = await supabaseAdmin.from("analyses").insert({
