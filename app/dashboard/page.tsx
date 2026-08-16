@@ -14,6 +14,7 @@ async function extractVideoFrames(file: File, count = 6): Promise<string[]> {
     video.playsInline = true;
     video.preload = "metadata";
     const cleanup = () => URL.revokeObjectURL(url);
+
     video.onloadedmetadata = async () => {
       try {
         const duration = Math.max(video.duration || 0, 1);
@@ -22,12 +23,14 @@ async function extractVideoFrames(file: File, count = 6): Promise<string[]> {
         canvas.height = video.videoHeight || 720;
         const ctx = canvas.getContext("2d");
         if (!ctx) throw new Error("فشل إنشاء canvas");
+
         const frames: string[] = [];
         const positions = Array.from({ length: count }, (_, i) => {
           if (count === 1) return 0.5;
           const ratio = i / (count - 1);
           return Math.min(duration - 0.1, Math.max(0.1, ratio * duration));
         });
+
         const seekTo = (time: number) =>
           new Promise<void>((resolveSeek, rejectSeek) => {
             const onSeeked = () => {
@@ -44,11 +47,13 @@ async function extractVideoFrames(file: File, count = 6): Promise<string[]> {
             video.addEventListener("error", onError, { once: true });
             video.currentTime = time;
           });
+
         for (const t of positions) {
           await seekTo(t);
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
           frames.push(canvas.toDataURL("image/jpeg", 0.82));
         }
+
         cleanup();
         resolve(frames);
       } catch (error) {
@@ -56,12 +61,14 @@ async function extractVideoFrames(file: File, count = 6): Promise<string[]> {
         reject(error);
       }
     };
+
     video.onerror = () => {
       cleanup();
       reject(new Error("فشل تحميل الفيديو"));
     };
   });
 }
+
 export default function Dashboard() {
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
@@ -95,18 +102,21 @@ export default function Dashboard() {
     supabase.auth.getUser().then(async ({ data }) => {
       if (!data.user) return router.push("/auth");
       setUser(data.user);
+
       const { data: prof } = await supabase
         .from("profiles")
         .select("*")
         .eq("id", data.user.id)
         .single();
       setProfile(prof);
+
       const { data: hist } = await supabase
         .from("analyses")
         .select("*")
         .eq("user_id", data.user.id)
         .order("created_at", { ascending: false })
         .limit(10);
+
       if (hist) setHistory(hist);
     });
   }, [router]);
@@ -120,17 +130,21 @@ export default function Dashboard() {
   ) => {
     const isImage = f.type.startsWith("image/");
     const isVideo = f.type.startsWith("video/");
+
     if (!isImage && !isVideo) {
       alert("الملف يجب أن يكون صورة أو فيديو");
       return;
     }
+
     setFrames([]);
     setImg(null);
+
     if (isImage) {
       if (f.size > 10 * 1024 * 1024) {
         alert("حجم الصورة كبير جدًا. اختر صورة أقل من 10MB");
         return;
       }
+
       const reader = new FileReader();
       reader.onload = () => {
         const data = reader.result as string;
@@ -141,13 +155,16 @@ export default function Dashboard() {
       reader.readAsDataURL(f);
       return;
     }
+
     if (f.size > 40 * 1024 * 1024) {
       alert("حجم الفيديو كبير جدًا. اختر فيديو أقل من 40MB");
       return;
     }
+
     const objectUrl = URL.createObjectURL(f);
     setPreview(objectUrl);
     setType("video");
+
     extractVideoFrames(f, 6)
       .then(setFrames)
       .catch((err: any) => alert(err.message || "فشل استخراج لقطات من الفيديو"));
@@ -187,28 +204,44 @@ export default function Dashboard() {
         userId: user.id,
       }),
     });
+
     const contentType = res.headers.get("content-type") || "";
     const raw = await res.text();
-    const data = contentType.includes("application/json") ? JSON.parse(raw) : { error: raw };
+    const data = contentType.includes("application/json")
+      ? JSON.parse(raw)
+      : { error: raw };
+
     if (!res.ok) {
       throw new Error(data.error || "خطأ أثناء التحليل");
     }
+
     return data;
   };
 
   const buildLocalComparison = (a: any, b: any) => {
     if (!a || !b) return null;
+
     const scoreA = a.overall_score ?? 0;
     const scoreB = b.overall_score ?? 0;
-    const winner = scoreA === scoreB ? "تعادل" : scoreA > scoreB ? "الكرياتيف A" : "الكرياتيف B";
+    const winner =
+      scoreA === scoreB
+        ? "تعادل"
+        : scoreA > scoreB
+        ? "الكرياتيف A"
+        : "الكرياتيف B";
+
     const metricsA = a.metrics || {};
     const metricsB = b.metrics || {};
-    const keys = Array.from(new Set([...Object.keys(metricsA), ...Object.keys(metricsB)]));
+    const keys = Array.from(
+      new Set([...Object.keys(metricsA), ...Object.keys(metricsB)])
+    );
+
     const metricsDiff = keys.map((k) => ({
       metric: k,
       a: metricsA[k] ?? null,
       b: metricsB[k] ?? null,
     }));
+
     return {
       winner,
       scoreA,
@@ -222,27 +255,34 @@ export default function Dashboard() {
   const analyze = async () => {
     if (!mediaType) return alert("ارفع الكرياتيف");
     if (compareMode && !mediaTypeB) return alert("ارفع الكرياتيف الثاني للمقارنة");
+
     if (profile?.subscription_status !== "pro" && profile?.credits <= 0) {
       return alert("انتهت محاولاتك المجانية! جدد الاشتراك بـ 1900 دج");
     }
+
     if (mediaType === "image" && !imageBase64) {
       return alert("الصورة غير جاهزة للتحليل");
     }
+
     if (mediaType === "video" && videoFrames.length === 0) {
       return alert("تعذر تجهيز لقطات الفيديو للتحليل");
     }
+
     if (compareMode) {
       if (mediaTypeB === "image" && !imageBase64B) {
         return alert("الصورة الثانية غير جاهزة للتحليل");
       }
+
       if (mediaTypeB === "video" && videoFramesB.length === 0) {
         return alert("تعذر تجهيز لقطات الفيديو الثاني للتحليل");
       }
     }
+
     setLoading(true);
     setResult(null);
     setResultB(null);
     setComparison(null);
+
     try {
       const dataA = await runAnalysis(mediaType, imageBase64, videoFrames);
       setResult(dataA.analysis);
@@ -253,6 +293,7 @@ export default function Dashboard() {
       }));
 
       let analysisB: any = null;
+
       if (compareMode) {
         const dataB = await runAnalysis(mediaTypeB, imageBase64B, videoFramesB);
         analysisB = dataB.analysis;
@@ -274,6 +315,7 @@ export default function Dashboard() {
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .limit(10);
+
       if (hist) setHistory(hist);
     } catch (e: any) {
       alert(e.message || "حدث خطأ غير متوقع");
@@ -284,13 +326,18 @@ export default function Dashboard() {
 
   const applyCoupon = async () => {
     if (!coupon) return;
+
     const res = await fetch("/api/coupon", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ code: coupon, userId: user.id }),
     });
-    const data = await res.json();
-    if (!res.ok) return alert(data.error);
+
+    const raw = await res.text();
+    const data = raw ? JSON.parse(raw) : {};
+
+    if (!res.ok) return alert(data.error || "فشل تفعيل الكوبون");
+
     alert(data.message);
     setProfile((p: any) => ({
       ...p,
@@ -308,6 +355,82 @@ export default function Dashboard() {
   const isPro =
     profile.subscription_status === "pro" &&
     new Date(profile.subscription_expires_at) > new Date();
+
+  const renderSmartSuggestions = (smart: any) => {
+    const data = smart || {
+      repeated_patterns: [],
+      priority_actions: [],
+      next_creative_ideas: [],
+    };
+
+    return (
+      <div className="mt-4 bg-[#0a0a0b] border border-zinc-800 rounded-2xl p-4">
+        <h3 className="font-black text-sm mb-4">🧠 اقتراحات ذكية من تحليلاتك السابقة</h3>
+
+        <div className="space-y-4 text-sm">
+          <div>
+            <p className="text-xs text-zinc-500 mb-2">الأنماط المتكررة</p>
+            <div className="space-y-2">
+              {(data.repeated_patterns || []).length > 0 ? (
+                data.repeated_patterns.map((item: string, i: number) => (
+                  <div
+                    key={i}
+                    className="bg-[#141416] border border-zinc-800 rounded-xl p-3"
+                  >
+                    • {item}
+                  </div>
+                ))
+              ) : (
+                <div className="bg-[#141416] border border-zinc-800 rounded-xl p-3 text-zinc-500">
+                  لا توجد بيانات كافية بعد لاستخراج نمط متكرر.
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <p className="text-xs text-zinc-500 mb-2">أولويات التحسين</p>
+            <div className="space-y-2">
+              {(data.priority_actions || []).length > 0 ? (
+                data.priority_actions.map((item: string, i: number) => (
+                  <div
+                    key={i}
+                    className="bg-lime-950/20 border border-lime-900/30 rounded-xl p-3"
+                  >
+                    • {item}
+                  </div>
+                ))
+              ) : (
+                <div className="bg-[#141416] border border-zinc-800 rounded-xl p-3 text-zinc-500">
+                  ستظهر هنا الإجراءات التنفيذية بعد تراكم بعض التحليلات.
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <p className="text-xs text-zinc-500 mb-2">أفكار للكرياتيف القادم</p>
+            <div className="space-y-2">
+              {(data.next_creative_ideas || []).length > 0 ? (
+                data.next_creative_ideas.map((item: string, i: number) => (
+                  <div
+                    key={i}
+                    className="bg-blue-950/20 border border-blue-900/30 rounded-xl p-3"
+                  >
+                    • {item}
+                  </div>
+                ))
+              ) : (
+                <div className="bg-[#141416] border border-zinc-800 rounded-xl p-3 text-zinc-500">
+                  لا توجد أفكار كافية بعد. حلل المزيد من الإعلانات أولًا.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   const renderUploadBox = (
     preview: string | null,
@@ -335,8 +458,16 @@ export default function Dashboard() {
             <span className="text-xs text-zinc-500">PNG, JPG, MP4</span>
           </>
         )}
-        <input ref={ref} type="file" hidden accept="image/*,video/mp4,video/*" onChange={onChange} />
+
+        <input
+          ref={ref}
+          type="file"
+          hidden
+          accept="image/*,video/mp4,video/*"
+          onChange={onChange}
+        />
       </div>
+
       {type === "video" && frames.length > 0 && (
         <div className="grid grid-cols-3 gap-2 mt-3">
           {frames.map((frame, i) => (
@@ -359,20 +490,27 @@ export default function Dashboard() {
           {res.overall_score}
         </div>
         <div>
-          <h2 className="font-black text-sm">{label}: {res.verdict}</h2>
+          <h2 className="font-black text-sm">
+            {label}: {res.verdict}
+          </h2>
           <p className="text-[11px] text-zinc-500">
             {res.overall_score >= 80 ? "جاهز للإطلاق" : "يحتاج تعديلات"}
           </p>
         </div>
       </div>
+
       <div className="grid grid-cols-3 gap-2 mb-4">
         {Object.entries(res.metrics || {}).map(([k, v]: any) => (
-          <div key={k} className="bg-[#0a0a0b] border border-zinc-800 rounded-lg p-2 text-center">
+          <div
+            key={k}
+            className="bg-[#0a0a0b] border border-zinc-800 rounded-lg p-2 text-center"
+          >
             <div className="text-[9px] text-zinc-500">{k}</div>
             <div className="font-black text-sm">{String(v ?? "—")}/10</div>
           </div>
         ))}
       </div>
+
       <div className="space-y-2 text-xs">
         <div className="bg-red-950/20 border border-red-900/30 rounded-xl p-3">
           <b className="text-red-300 text-xs">🚨 مشاكل:</b>
@@ -382,6 +520,7 @@ export default function Dashboard() {
             ))}
           </ul>
         </div>
+
         <div className="bg-lime-950/20 border border-lime-900/30 rounded-xl p-3">
           <b className="text-lime-300 text-xs">💡 توصيات:</b>
           <ul className="mt-1">
@@ -391,6 +530,8 @@ export default function Dashboard() {
           </ul>
         </div>
       </div>
+
+      {renderSmartSuggestions(res.smartSuggestions)}
     </div>
   );
 
@@ -398,7 +539,9 @@ export default function Dashboard() {
     <main className="min-h-screen p-4 md:p-6 max-w-7xl mx-auto">
       <header className="flex justify-between items-center border-b border-zinc-800 pb-4 mb-6">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-[#D4FF32] rounded-lg flex items-center justify-center font-black text-black">C</div>
+          <div className="w-8 h-8 bg-[#D4FF32] rounded-lg flex items-center justify-center font-black text-black">
+            C
+          </div>
           <span className="font-black">DASHBOARD</span>
           <span
             className={`text-xs px-2 py-1 rounded-full ${
@@ -408,6 +551,7 @@ export default function Dashboard() {
             {isPro ? "PRO" : `${profile.credits} محاولات`}
           </span>
         </div>
+
         <button
           onClick={async () => {
             await supabase.auth.signOut();
@@ -426,7 +570,10 @@ export default function Dashboard() {
             <span className="text-sm"> اشترك بـ 1900 دج / شهر تحليلات غير محدودة</span>
           </div>
           <div className="flex gap-2">
-            <a href="#pay" className="bg-black text-white px-4 py-2 rounded-full text-sm font-bold">
+            <a
+              href="#pay"
+              className="bg-black text-white px-4 py-2 rounded-full text-sm font-bold"
+            >
               ادفع عبر BaridiMob
             </a>
           </div>
@@ -482,6 +629,7 @@ export default function Dashboard() {
             <option>تيك توك</option>
             <option>انستغرام</option>
           </select>
+
           <div className="grid grid-cols-2 gap-2 mt-2">
             <select
               value={goal}
@@ -491,6 +639,7 @@ export default function Dashboard() {
               <option>مبيعات</option>
               <option>رسائل</option>
             </select>
+
             <select
               value={niche}
               onChange={(e) => setNiche(e.target.value)}
@@ -501,6 +650,7 @@ export default function Dashboard() {
               <option>عقارات</option>
             </select>
           </div>
+
           <button
             onClick={analyze}
             disabled={loading}
@@ -518,7 +668,10 @@ export default function Dashboard() {
                 placeholder="HATEM50"
                 className="flex-1 bg-[#0a0a0b] border border-zinc-800 rounded-xl p-2.5 text-sm"
               />
-              <button onClick={applyCoupon} className="bg-white text-black px-4 rounded-xl text-sm font-bold">
+              <button
+                onClick={applyCoupon}
+                className="bg-white text-black px-4 rounded-xl text-sm font-bold"
+              >
                 تفعيل
               </button>
             </div>
@@ -548,23 +701,29 @@ export default function Dashboard() {
 
         <div className="bg-[#141416] border border-zinc-800 rounded-2xl p-6 min-h-[500px]">
           {!result && !loading && (
-            <div className="text-center py-24 text-zinc-500 text-sm">النتائج ستظهر هنا</div>
+            <div className="text-center py-24 text-zinc-500 text-sm">
+              النتائج ستظهر هنا
+            </div>
           )}
+
           {loading && (
             <div className="text-center py-24">
               <div className="animate-spin w-8 h-8 border-2 border-[#D4FF32] border-t-transparent rounded-full mx-auto mb-3"></div>
               <p className="text-sm">نحلل بالذكاء الاصطناعي...</p>
             </div>
           )}
+
           {result && !compareMode && (
             <div>{renderResultBlock("النتيجة", result)}</div>
           )}
+
           {result && compareMode && (
             <div>
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="bg-[#0a0a0b] border border-zinc-800 rounded-xl p-4">
                   {renderResultBlock("الكرياتيف A", result)}
                 </div>
+
                 {resultB && (
                   <div className="bg-[#0a0a0b] border border-zinc-800 rounded-xl p-4">
                     {renderResultBlock("الكرياتيف B", resultB)}
@@ -574,18 +733,29 @@ export default function Dashboard() {
 
               {comparison && (
                 <div className="mt-6 bg-[#0a0a0b] border border-[#D4FF32]/40 rounded-xl p-4">
-                  <h3 className="font-black text-sm mb-3">🤖 اقتراح المقارنة (قريبًا: ذكاء اصطناعي)</h3>
+                  <h3 className="font-black text-sm mb-3">
+                    🤖 اقتراح المقارنة (قريبًا: ذكاء اصطناعي)
+                  </h3>
                   <p className="text-xs text-zinc-400 mb-3">
-                    الأفضل حاليًا: <b className="text-[#D4FF32]">{comparison.winner}</b> ({comparison.scoreA} مقابل {comparison.scoreB})
+                    الأفضل حاليًا:{" "}
+                    <b className="text-[#D4FF32]">{comparison.winner}</b> (
+                    {comparison.scoreA} مقابل {comparison.scoreB})
                   </p>
+
                   <div className="space-y-1 text-xs mb-3">
                     {comparison.metricsDiff.map((m: any) => (
-                      <div key={m.metric} className="flex justify-between bg-[#141416] rounded-lg p-2">
+                      <div
+                        key={m.metric}
+                        className="flex justify-between bg-[#141416] rounded-lg p-2"
+                      >
                         <span className="text-zinc-400">{m.metric}</span>
-                        <span>A: {String(m.a ?? "—")} | B: {String(m.b ?? "—")}</span>
+                        <span>
+                          A: {String(m.a ?? "—")} | B: {String(m.b ?? "—")}
+                        </span>
                       </div>
                     ))}
                   </div>
+
                   <p className="text-[11px] text-zinc-500 italic">{comparison.note}</p>
                 </div>
               )}
