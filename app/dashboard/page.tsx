@@ -686,7 +686,11 @@ export default function Dashboard() {
               <br />
               بعد الدفع ابعث وصل في واتساب: 0550 00 00 00
               <br />
+              RIP 007999992809491134
+              <br />
+              WHATSAPP 0779613978
               وسنفعل اشتراكك في أقل من ساعة
+              <br />
             </p>
             <a
               href="https://app.lemonsqueezy.com/checkout"
