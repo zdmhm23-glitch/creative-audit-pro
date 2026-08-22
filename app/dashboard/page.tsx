@@ -677,31 +677,30 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div id="pay" className="mt-6 bg-[#0a0a0b] border border-zinc-800 rounded-xl p-3">
-            <p className="text-xs font-bold">💳 الدفع:</p>
-            <p className="text-[11px] text-zinc-400 mt-2">
-              BaridiMob: 00799999 0000000000
-              <br />
-              CCP: 123456 clé 12
-              <br />
-              بعد الدفع ابعث وصل في واتساب: 0550 00 00 00
-              <br />
-              RIP 007999992809491134
-              <br />
-              WHATSAPP 0779613978
-              وسنفعل اشتراكك في أقل من ساعة
-              <br />
-            </p>
-            <a
-              href="https://app.lemonsqueezy.com/checkout"
-              target="_blank"
-              rel="noreferrer"
-              className="block text-center mt-3 bg-zinc-800 py-2 rounded-full text-xs"
-            >
-              دفع دولي عبر LemonSqueezy
-            </a>
-          </div>
-        </div>
+<div id="pay" className="mt-6 bg-[#0a0a0b] border border-zinc-800 rounded-xl p-3">
+  <p className="text-xs font-bold">💳 الدفع:</p>
+  <p className="text-[11px] text-zinc-400 mt-2">
+    BaridiMob: 00799999 0000000000
+    <br />
+    CCP: 123456 clé 12
+    <br />
+    بعد الدفع ابعث وصل في واتساب: 0550 00 00 00
+    <br />
+    RIP 007999992809491134
+    <br />
+    WHATSAPP 0779613978
+    <br />
+    وسنفعل اشتراكك في أقل من ساعة
+  </p>
+  <a
+    href="https://app.lemonsqueezy.com/checkout"
+    target="_blank"
+    rel="noreferrer"
+    className="block text-center mt-3 bg-zinc-800 py-2 rounded-full text-xs"
+  >
+    دفع دولي عبر LemonSqueezy
+  </a>
+</div>
 
         <div className="bg-[#141416] border border-zinc-800 rounded-2xl p-6 min-h-[500px]">
           {!result && !loading && (
