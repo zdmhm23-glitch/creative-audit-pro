@@ -72,7 +72,6 @@ async function extractVideoFrames(file: File, count = 6): Promise<string[]> {
 export default function Dashboard() {
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
-
   const [compareMode, setCompareMode] = useState(false);
 
   const [mediaPreview, setMediaPreview] = useState<string | null>(null);
@@ -94,6 +93,7 @@ export default function Dashboard() {
   const [comparison, setComparison] = useState<any>(null);
   const [history, setHistory] = useState<any[]>([]);
   const [coupon, setCoupon] = useState("");
+
   const fileRef = useRef<HTMLInputElement>(null);
   const fileRefB = useRef<HTMLInputElement>(null);
   const router = useRouter();
@@ -116,7 +116,6 @@ export default function Dashboard() {
         .eq("user_id", data.user.id)
         .order("created_at", { ascending: false })
         .limit(10);
-
       if (hist) setHistory(hist);
     });
   }, [router]);
@@ -130,7 +129,6 @@ export default function Dashboard() {
   ) => {
     const isImage = f.type.startsWith("image/");
     const isVideo = f.type.startsWith("video/");
-
     if (!isImage && !isVideo) {
       alert("الملف يجب أن يكون صورة أو فيديو");
       return;
@@ -144,7 +142,6 @@ export default function Dashboard() {
         alert("حجم الصورة كبير جدًا. اختر صورة أقل من 10MB");
         return;
       }
-
       const reader = new FileReader();
       reader.onload = () => {
         const data = reader.result as string;
@@ -164,7 +161,6 @@ export default function Dashboard() {
     const objectUrl = URL.createObjectURL(f);
     setPreview(objectUrl);
     setType("video");
-
     extractVideoFrames(f, 6)
       .then(setFrames)
       .catch((err: any) => alert(err.message || "فشل استخراج لقطات من الفيديو"));
@@ -207,72 +203,54 @@ export default function Dashboard() {
 
     const contentType = res.headers.get("content-type") || "";
     const raw = await res.text();
-    const data = contentType.includes("application/json")
-      ? JSON.parse(raw)
-      : { error: raw };
+    const data = contentType.includes("application/json") ? JSON.parse(raw) : { error: raw };
 
     if (!res.ok) {
       throw new Error(data.error || "خطأ أثناء التحليل");
     }
-
     return data;
   };
 
   const buildLocalComparison = (a: any, b: any) => {
     if (!a || !b) return null;
-
     const scoreA = a.overall_score ?? 0;
     const scoreB = b.overall_score ?? 0;
-    const winner =
-      scoreA === scoreB
-        ? "تعادل"
-        : scoreA > scoreB
-        ? "الكرياتيف A"
-        : "الكرياتيف B";
-
+    const winner = scoreA === scoreB ? "تعادل" : scoreA > scoreB ? "الكرياتيف A" : "الكرياتيف B";
     const metricsA = a.metrics || {};
     const metricsB = b.metrics || {};
     const keys = Array.from(
       new Set([...Object.keys(metricsA), ...Object.keys(metricsB)])
     );
-
     const metricsDiff = keys.map((k) => ({
       metric: k,
       a: metricsA[k] ?? null,
       b: metricsB[k] ?? null,
     }));
-
     return {
       winner,
       scoreA,
       scoreB,
       metricsDiff,
-      note:
-        "هذه مقارنة أولية مبنية على النتائج المتوفرة. سيتم تفعيل اقتراحات ذكاء اصطناعي أعمق لاحقًا.",
+      note: "هذه مقارنة أولية مبنية على النتائج المتوفرة. سيتم تفعيل اقتراحات ذكاء اصطناعي أعمق لاحقًا.",
     };
   };
 
   const analyze = async () => {
     if (!mediaType) return alert("ارفع الكرياتيف");
     if (compareMode && !mediaTypeB) return alert("ارفع الكرياتيف الثاني للمقارنة");
-
     if (profile?.subscription_status !== "pro" && profile?.credits <= 0) {
       return alert("انتهت محاولاتك المجانية! جدد الاشتراك بـ 1900 دج");
     }
-
     if (mediaType === "image" && !imageBase64) {
       return alert("الصورة غير جاهزة للتحليل");
     }
-
     if (mediaType === "video" && videoFrames.length === 0) {
       return alert("تعذر تجهيز لقطات الفيديو للتحليل");
     }
-
     if (compareMode) {
       if (mediaTypeB === "image" && !imageBase64B) {
         return alert("الصورة الثانية غير جاهزة للتحليل");
       }
-
       if (mediaTypeB === "video" && videoFramesB.length === 0) {
         return alert("تعذر تجهيز لقطات الفيديو الثاني للتحليل");
       }
@@ -293,7 +271,6 @@ export default function Dashboard() {
       }));
 
       let analysisB: any = null;
-
       if (compareMode) {
         const dataB = await runAnalysis(mediaTypeB, imageBase64B, videoFramesB);
         analysisB = dataB.analysis;
@@ -315,7 +292,6 @@ export default function Dashboard() {
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .limit(10);
-
       if (hist) setHistory(hist);
     } catch (e: any) {
       alert(e.message || "حدث خطأ غير متوقع");
@@ -326,18 +302,14 @@ export default function Dashboard() {
 
   const applyCoupon = async () => {
     if (!coupon) return;
-
     const res = await fetch("/api/coupon", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ code: coupon, userId: user.id }),
     });
-
     const raw = await res.text();
     const data = raw ? JSON.parse(raw) : {};
-
     if (!res.ok) return alert(data.error || "فشل تفعيل الكوبون");
-
     alert(data.message);
     setProfile((p: any) => ({
       ...p,
@@ -349,7 +321,11 @@ export default function Dashboard() {
   };
 
   if (!profile) {
-    return <div className="p-10 text-center">جاري التحميل...</div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center text-zinc-400">
+        جاري التحميل...
+      </div>
+    );
   }
 
   const isPro =
@@ -362,70 +338,61 @@ export default function Dashboard() {
       priority_actions: [],
       next_creative_ideas: [],
     };
-
     return (
-      <div className="mt-4 bg-[#0a0a0b] border border-zinc-800 rounded-2xl p-4">
-        <h3 className="font-black text-sm mb-4">🧠 اقتراحات ذكية من تحليلاتك السابقة</h3>
+      <div className="mt-4 space-y-3">
+        <p className="text-xs text-zinc-500 font-bold">🧠 اقتراحات ذكية من تحليلاتك السابقة</p>
 
-        <div className="space-y-4 text-sm">
-          <div>
-            <p className="text-xs text-zinc-500 mb-2">الأنماط المتكررة</p>
-            <div className="space-y-2">
-              {(data.repeated_patterns || []).length > 0 ? (
-                data.repeated_patterns.map((item: string, i: number) => (
-                  <div
-                    key={i}
-                    className="bg-[#141416] border border-zinc-800 rounded-xl p-3"
-                  >
-                    • {item}
-                  </div>
-                ))
-              ) : (
-                <div className="bg-[#141416] border border-zinc-800 rounded-xl p-3 text-zinc-500">
-                  لا توجد بيانات كافية بعد لاستخراج نمط متكرر.
+        <div>
+          <p className="text-xs text-zinc-500 mb-2">الأنماط المتكررة</p>
+          <div className="space-y-2">
+            {(data.repeated_patterns || []).length > 0 ? (
+              data.repeated_patterns.map((item: string, i: number) => (
+                <div key={i} className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-zinc-300 text-sm">
+                  • {item}
                 </div>
-              )}
-            </div>
+              ))
+            ) : (
+              <div className="bg-[#141416] border border-zinc-800 rounded-xl p-3 text-zinc-500">
+                لا توجد بيانات كافية بعد لاستخراج نمط متكرر.
+              </div>
+            )}
           </div>
+        </div>
 
-          <div>
-            <p className="text-xs text-zinc-500 mb-2">أولويات التحسين</p>
-            <div className="space-y-2">
-              {(data.priority_actions || []).length > 0 ? (
-                data.priority_actions.map((item: string, i: number) => (
-                  <div
-                    key={i}
-                    className="bg-lime-950/20 border border-lime-900/30 rounded-xl p-3"
-                  >
-                    • {item}
-                  </div>
-                ))
-              ) : (
-                <div className="bg-[#141416] border border-zinc-800 rounded-xl p-3 text-zinc-500">
-                  ستظهر هنا الإجراءات التنفيذية بعد تراكم بعض التحليلات.
+        <div>
+          <p className="text-xs text-zinc-500 mb-2">أولويات التحسين</p>
+          <div className="space-y-2">
+            {(data.priority_actions || []).length > 0 ? (
+              data.priority_actions.map((item: string, i: number) => (
+                <div
+                  key={i}
+                  className="bg-lime-950/20 border border-lime-900/30 rounded-xl p-3"
+                >
+                  • {item}
                 </div>
-              )}
-            </div>
+              ))
+            ) : (
+              <div className="bg-[#141416] border border-zinc-800 rounded-xl p-3 text-zinc-500">
+                ستظهر هنا الإجراءات التنفيذية بعد تراكم بعض التحليلات.
+              </div>
+            )}
           </div>
+        </div>
 
-          <div>
-            <p className="text-xs text-zinc-500 mb-2">أفكار للكرياتيف القادم</p>
-            <div className="space-y-2">
-              {(data.next_creative_ideas || []).length > 0 ? (
-                data.next_creative_ideas.map((item: string, i: number) => (
-                  <div
-                    key={i}
-                    className="bg-blue-950/20 border border-blue-900/30 rounded-xl p-3"
-                  >
-                    • {item}
-                  </div>
-                ))
-              ) : (
-                <div className="bg-[#141416] border border-zinc-800 rounded-xl p-3 text-zinc-500">
-                  لا توجد أفكار كافية بعد. حلل المزيد من الإعلانات أولًا.
+        <div>
+          <p className="text-xs text-zinc-500 mb-2">أفكار للكرياتيف القادم</p>
+          <div className="space-y-2">
+            {(data.next_creative_ideas || []).length > 0 ? (
+              data.next_creative_ideas.map((item: string, i: number) => (
+                <div key={i} className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-zinc-300 text-sm">
+                  • {item}
                 </div>
-              )}
-            </div>
+              ))
+            ) : (
+              <div className="bg-[#141416] border border-zinc-800 rounded-xl p-3 text-zinc-500">
+                لا توجد أفكار كافية بعد. حلل المزيد من الإعلانات أولًا.
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -453,30 +420,20 @@ export default function Dashboard() {
             <video src={preview} className="w-full h-full object-contain" controls />
           )
         ) : (
-          <>
-            <span className="text-3xl">+</span>
-            <span className="text-xs text-zinc-500">PNG, JPG, MP4</span>
-          </>
+          <p className="text-zinc-500 text-sm">اضغط للرفع</p>
         )}
-
-        <input
-          ref={ref}
-          type="file"
-          hidden
-          accept="image/*,video/mp4,video/*"
-          onChange={onChange}
-        />
       </div>
-
+      <input
+        ref={ref}
+        type="file"
+        accept="image/*,video/*"
+        className="hidden"
+        onChange={onChange}
+      />
       {type === "video" && frames.length > 0 && (
-        <div className="grid grid-cols-3 gap-2 mt-3">
+        <div className="flex gap-1 mt-2 overflow-x-auto">
           {frames.map((frame, i) => (
-            <img
-              key={i}
-              src={frame}
-              alt={`frame-${i + 1}`}
-              className="w-full h-16 object-cover rounded-lg border border-zinc-800"
-            />
+            <img key={i} src={frame} alt={`frame-${i}`} className="w-12 h-12 object-cover rounded" />
           ))}
         </div>
       )}
@@ -484,52 +441,39 @@ export default function Dashboard() {
   );
 
   const renderResultBlock = (label: string, res: any) => (
-    <div>
-      <div className="flex gap-3 items-center mb-4">
-        <div className="w-14 h-14 rounded-full bg-zinc-900 flex items-center justify-center text-lg font-black border-4 border-[#D4FF32]">
-          {res.overall_score}
-        </div>
-        <div>
-          <h2 className="font-black text-sm">
-            {label}: {res.verdict}
-          </h2>
-          <p className="text-[11px] text-zinc-500">
-            {res.overall_score >= 80 ? "جاهز للإطلاق" : "يحتاج تعديلات"}
-          </p>
-        </div>
+    <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-4">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="font-bold">
+          {label}: {res.verdict}
+        </h3>
+        <span className="text-2xl font-bold">{res.overall_score}</span>
       </div>
+      <p className="text-xs text-zinc-500 mb-3">
+        {res.overall_score >= 80 ? "جاهز للإطلاق" : "يحتاج تعديلات"}
+      </p>
 
-      <div className="grid grid-cols-3 gap-2 mb-4">
+      <div className="grid grid-cols-2 gap-2 mb-4">
         {Object.entries(res.metrics || {}).map(([k, v]: any) => (
-          <div
-            key={k}
-            className="bg-[#0a0a0b] border border-zinc-800 rounded-lg p-2 text-center"
-          >
-            <div className="text-[9px] text-zinc-500">{k}</div>
-            <div className="font-black text-sm">{String(v ?? "—")}/10</div>
+          <div key={k} className="bg-zinc-900 rounded-lg p-2 text-sm flex justify-between">
+            <span className="text-zinc-400">{k}</span>
+            <span>{String(v ?? "—")}/10</span>
           </div>
         ))}
       </div>
 
-      <div className="space-y-2 text-xs">
-        <div className="bg-red-950/20 border border-red-900/30 rounded-xl p-3">
-          <b className="text-red-300 text-xs">🚨 مشاكل:</b>
-          <ul className="mt-1">
-            {(res.critical_issues || []).map((x: string, i: number) => (
-              <li key={i}>• {x}</li>
-            ))}
-          </ul>
-        </div>
+      <p className="font-bold text-sm mb-1">🚨 مشاكل:</p>
+      <ul className="text-sm text-zinc-400 mb-3 space-y-1">
+        {(res.critical_issues || []).map((x: string, i: number) => (
+          <li key={i}>• {x}</li>
+        ))}
+      </ul>
 
-        <div className="bg-lime-950/20 border border-lime-900/30 rounded-xl p-3">
-          <b className="text-lime-300 text-xs">💡 توصيات:</b>
-          <ul className="mt-1">
-            {(res.recommendations || []).map((x: string, i: number) => (
-              <li key={i}>• {x}</li>
-            ))}
-          </ul>
-        </div>
-      </div>
+      <p className="font-bold text-sm mb-1">💡 توصيات:</p>
+      <ul className="text-sm text-zinc-400 space-y-1">
+        {(res.recommendations || []).map((x: string, i: number) => (
+          <li key={i}>• {x}</li>
+        ))}
+      </ul>
 
       {renderSmartSuggestions(res.smartSuggestions)}
     </div>
@@ -539,19 +483,16 @@ export default function Dashboard() {
     <main className="min-h-screen p-4 md:p-6 max-w-7xl mx-auto">
       <header className="flex justify-between items-center border-b border-zinc-800 pb-4 mb-6">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-[#D4FF32] rounded-lg flex items-center justify-center font-black text-black">
+          <div className="w-8 h-8 bg-[#D4FF32] rounded-lg flex items-center justify-center font-bold text-black">
             C
           </div>
-          <span className="font-black">DASHBOARD</span>
-          <span
-            className={`text-xs px-2 py-1 rounded-full ${
-              isPro ? "bg-[#D4FF32] text-black" : "bg-zinc-800"
-            }`}
-          >
-            {isPro ? "PRO" : `${profile.credits} محاولات`}
-          </span>
+          <div>
+            <p className="font-bold">DASHBOARD</p>
+            <p className="text-xs text-zinc-500">
+              {isPro ? "PRO" : `${profile.credits} محاولات`}
+            </p>
+          </div>
         </div>
-
         <button
           onClick={async () => {
             await supabase.auth.signOut();
@@ -564,27 +505,25 @@ export default function Dashboard() {
       </header>
 
       {!isPro && (
-        <div className="bg-[#D4FF32] text-black rounded-2xl p-4 flex justify-between items-center mb-6">
+        <div className="bg-lime-950/20 border border-lime-900/30 rounded-xl p-4 mb-6 flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div>
-            <b>انتهت محاولاتك المجانية؟</b>
-            <span className="text-sm"> اشترك بـ 1900 دج / شهر تحليلات غير محدودة</span>
+            <p className="font-bold">انتهت محاولاتك المجانية؟</p>
+            <p className="text-sm text-zinc-400">اشترك بـ 1900 دج / شهر تحليلات غير محدودة</p>
           </div>
-          <div className="flex gap-2">
-            <a
-              href="#pay"
-              className="bg-black text-white px-4 py-2 rounded-full text-sm font-bold"
-            >
-              ادفع عبر BaridiMob
-            </a>
-          </div>
+          <a
+            href="#pay"
+            className="bg-[#D4FF32] text-black font-bold text-sm px-5 py-2 rounded-full text-center"
+          >
+            ادفع عبر BaridiMob
+          </a>
         </div>
       )}
 
-      <div className="grid md:grid-cols-[380px_1fr_280px] gap-5">
-        <div className="bg-[#141416] border border-zinc-800 rounded-2xl p-5 h-fit">
-          <div className="flex justify-between items-center mb-3">
-            <h3 className="font-bold">ارفع الكرياتيف</h3>
-            <label className="flex items-center gap-2 text-xs text-zinc-400 cursor-pointer">
+      <section className="grid md:grid-cols-2 gap-6">
+        <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-4">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-bold">ارفع الكرياتيف</h2>
+            <label className="flex items-center gap-2 text-xs text-zinc-400">
               <input
                 type="checkbox"
                 checked={compareMode}
@@ -598,70 +537,69 @@ export default function Dashboard() {
             </label>
           </div>
 
-          {renderUploadBox(
-            mediaPreview,
-            mediaType,
-            videoFrames,
-            fileRef,
-            handleFile,
-            compareMode ? "الكرياتيف A" : "الكرياتيف"
-          )}
+          <div className="space-y-4">
+            {renderUploadBox(
+              mediaPreview,
+              mediaType,
+              videoFrames,
+              fileRef,
+              handleFile,
+              compareMode ? "الكرياتيف A" : "الكرياتيف"
+            )}
 
-          {compareMode && (
-            <div className="mt-4">
-              {renderUploadBox(
-                mediaPreviewB,
-                mediaTypeB,
-                videoFramesB,
-                fileRefB,
-                handleFileB,
-                "الكرياتيف B (للمقارنة)"
-              )}
+            {compareMode && (
+              <div>
+                {renderUploadBox(
+                  mediaPreviewB,
+                  mediaTypeB,
+                  videoFramesB,
+                  fileRefB,
+                  handleFileB,
+                  "الكرياتيف B (للمقارنة)"
+                )}
+              </div>
+            )}
+
+            <select
+              value={platform}
+              onChange={(e) => setPlatform(e.target.value)}
+              className="w-full mt-3 bg-[#0a0a0b] border border-zinc-800 rounded-xl p-3 text-sm"
+            >
+              <option>فيسبوك</option>
+              <option>تيك توك</option>
+              <option>انستغرام</option>
+            </select>
+
+            <div className="grid grid-cols-2 gap-3">
+              <select
+                value={goal}
+                onChange={(e) => setGoal(e.target.value)}
+                className="bg-[#0a0a0b] border border-zinc-800 rounded-xl p-3 text-sm"
+              >
+                <option>مبيعات</option>
+                <option>رسائل</option>
+              </select>
+              <select
+                value={niche}
+                onChange={(e) => setNiche(e.target.value)}
+                className="bg-[#0a0a0b] border border-zinc-800 rounded-xl p-3 text-sm"
+              >
+                <option>متجر الكتروني</option>
+                <option>تجميلي</option>
+                <option>عقارات</option>
+              </select>
             </div>
-          )}
 
-          <select
-            value={platform}
-            onChange={(e) => setPlatform(e.target.value)}
-            className="w-full mt-3 bg-[#0a0a0b] border border-zinc-800 rounded-xl p-3 text-sm"
-          >
-            <option>فيسبوك</option>
-            <option>تيك توك</option>
-            <option>انستغرام</option>
-          </select>
-
-          <div className="grid grid-cols-2 gap-2 mt-2">
-            <select
-              value={goal}
-              onChange={(e) => setGoal(e.target.value)}
-              className="bg-[#0a0a0b] border border-zinc-800 rounded-xl p-3 text-sm"
+            <button
+              onClick={analyze}
+              disabled={loading}
+              className="w-full bg-[#D4FF32] text-black font-bold py-3 rounded-xl disabled:opacity-50"
             >
-              <option>مبيعات</option>
-              <option>رسائل</option>
-            </select>
+              {loading ? "جاري التحليل..." : compareMode ? "قارن الآن ⚡" : "حلل الآن ⚡"}
+            </button>
 
-            <select
-              value={niche}
-              onChange={(e) => setNiche(e.target.value)}
-              className="bg-[#0a0a0b] border border-zinc-800 rounded-xl p-3 text-sm"
-            >
-              <option>متجر الكتروني</option>
-              <option>تجميلي</option>
-              <option>عقارات</option>
-            </select>
-          </div>
-
-          <button
-            onClick={analyze}
-            disabled={loading}
-            className="w-full mt-3 bg-[#D4FF32] text-black font-black py-3 rounded-xl"
-          >
-            {loading ? "جاري التحليل..." : compareMode ? "قارن الآن ⚡" : "حلل الآن ⚡"}
-          </button>
-
-          <div className="mt-6 border-t border-zinc-800 pt-4">
-            <p className="text-xs font-bold mb-2">عندك كوبون؟</p>
             <div className="flex gap-2">
+              <p className="text-xs text-zinc-500 self-center">عندك كوبون؟</p>
               <input
                 value={coupon}
                 onChange={(e) => setCoupon(e.target.value)}
@@ -670,50 +608,42 @@ export default function Dashboard() {
               />
               <button
                 onClick={applyCoupon}
-                className="bg-white text-black px-4 rounded-xl text-sm font-bold"
+                className="bg-zinc-800 text-sm px-4 rounded-xl"
               >
                 تفعيل
               </button>
             </div>
           </div>
 
-<div id="pay" className="mt-6 bg-[#0a0a0b] border border-zinc-800 rounded-xl p-3">
-  <p className="text-xs font-bold">💳 الدفع:</p>
-  <p className="text-[11px] text-zinc-400 mt-2">
-    BaridiMob: 00799999 0000000000
-    <br />
-    CCP: 123456 clé 12
-    <br />
-    بعد الدفع ابعث وصل في واتساب: 0550 00 00 00
-    <br />
-    RIP 007999992809491134
-    <br />
-    WHATSAPP 0779613978
-    <br />
-    وسنفعل اشتراكك في أقل من ساعة
-  </p>
-  <a
-    href="https://app.lemonsqueezy.com/checkout"
-    target="_blank"
-    rel="noreferrer"
-    className="block text-center mt-3 bg-zinc-800 py-2 rounded-full text-xs"
-  >
-    دفع دولي عبر LemonSqueezy
-  </a>
-</div>
-
-        <div className="bg-[#141416] border border-zinc-800 rounded-2xl p-6 min-h-[500px]">
-          
-            <div className="text-center py-24 text-zinc-500 text-sm">
-              النتائج ستظهر هنا
+          <div id="pay" className="mt-6 border-t border-zinc-800 pt-4 space-y-4">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 text-sm space-y-1">
+              <p className="font-bold mb-2">💳 الدفع المحلي:</p>
+              <p>BaridiMob: 00799999 0000000000</p>
+              <p>CCP: 123456 clé 12</p>
+              <p>RIP: 007999992809491134</p>
+              <p>WhatsApp: 0779613978</p>
+              <p className="text-zinc-400">بعد الدفع ابعث وصل في واتساب: 0779613978</p>
+              <p className="text-zinc-400">وسنفعل اشتراكك في أقل من ساعة</p>
             </div>
+
+            <a
+              href="https://app.lemonsqueezy.com/checkout"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block text-center bg-zinc-800 text-sm py-3 rounded-xl"
+            >
+              دفع دولي عبر LemonSqueezy
+            </a>
+          </div>
+        </div>
+
+        <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-4">
+          {!result && !loading && (
+            <p className="text-zinc-500 text-center py-10">النتائج ستظهر هنا</p>
           )}
 
           {loading && (
-            <div className="text-center py-24">
-              <div className="animate-spin w-8 h-8 border-2 border-[#D4FF32] border-t-transparent rounded-full mx-auto mb-3"></div>
-              <p className="text-sm">نحلل بالذكاء الاصطناعي...</p>
-            </div>
+            <p className="text-zinc-500 text-center py-10">نحلل بالذكاء الاصطناعي...</p>
           )}
 
           {result && !compareMode && (
@@ -721,69 +651,60 @@ export default function Dashboard() {
           )}
 
           {result && compareMode && (
-            <div>
-              <div className="grid md:grid-cols-2 gap-4">
-                <div className="bg-[#0a0a0b] border border-zinc-800 rounded-xl p-4">
-                  {renderResultBlock("الكرياتيف A", result)}
-                </div>
+            <div className="space-y-4">
+              <div>{renderResultBlock("الكرياتيف A", result)}</div>
 
-                {resultB && (
-                  <div className="bg-[#0a0a0b] border border-zinc-800 rounded-xl p-4">
-                    {renderResultBlock("الكرياتيف B", resultB)}
-                  </div>
-                )}
-              </div>
+              {resultB && (
+                <div>{renderResultBlock("الكرياتيف B", resultB)}</div>
+              )}
 
               {comparison && (
-                <div className="mt-6 bg-[#0a0a0b] border border-[#D4FF32]/40 rounded-xl p-4">
-                  <h3 className="font-black text-sm mb-3">
-                    🤖 اقتراح المقارنة (قريبًا: ذكاء اصطناعي)
-                  </h3>
-                  <p className="text-xs text-zinc-400 mb-3">
+                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+                  <h3 className="font-bold mb-3">🤖 اقتراح المقارنة (قريبًا: ذكاء اصطناعي)</h3>
+                  <p className="text-sm mb-3">
                     الأفضل حاليًا:{" "}
-                    <b className="text-[#D4FF32]">{comparison.winner}</b> (
-                    {comparison.scoreA} مقابل {comparison.scoreB})
+                    <strong>{comparison.winner}</strong> ({comparison.scoreA} مقابل {comparison.scoreB})
                   </p>
-
-                  <div className="space-y-1 text-xs mb-3">
+                  <div className="space-y-1 mb-3">
                     {comparison.metricsDiff.map((m: any) => (
-                      <div
-                        key={m.metric}
-                        className="flex justify-between bg-[#141416] rounded-lg p-2"
-                      >
-                        <span className="text-zinc-400">{m.metric}</span>
+                      <div key={m.metric} className="flex justify-between text-sm text-zinc-400">
+                        <span>{m.metric}</span>
                         <span>
                           A: {String(m.a ?? "—")} | B: {String(m.b ?? "—")}
                         </span>
                       </div>
                     ))}
                   </div>
-
-                  <p className="text-[11px] text-zinc-500 italic">{comparison.note}</p>
+                  <p className="text-xs text-zinc-500">{comparison.note}</p>
                 </div>
               )}
             </div>
           )}
         </div>
+      </section>
 
-        <div className="bg-[#141416] border border-zinc-800 rounded-2xl p-5">
-          <h3 className="font-bold text-sm mb-4">📜 آخر تحليلاتك</h3>
-          <div className="space-y-2">
-            {history.length === 0 && <p className="text-xs text-zinc-600">لا يوجد بعد</p>}
-            {history.map((h: any) => (
-              <div key={h.id} className="bg-[#0a0a0b] border border-zinc-800 rounded-xl p-3">
-                <div className="flex justify-between text-xs">
-                  <span>{h.platform}</span>
-                  <span className="font-black text-[#D4FF32]">{h.overall_score}/100</span>
-                </div>
-                <div className="text-[11px] text-zinc-500 mt-1">
-                  {new Date(h.created_at).toLocaleDateString("ar-DZ")}
-                </div>
+      <section className="mt-8">
+        <h2 className="font-bold mb-4">📜 آخر تحليلاتك</h2>
+        {history.length === 0 && (
+          <p className="text-zinc-500 text-sm">لا يوجد بعد</p>
+        )}
+        <div className="space-y-2">
+          {history.map((h: any) => (
+            <div
+              key={h.id}
+              className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 flex justify-between items-center text-sm"
+            >
+              <div className="flex gap-3">
+                <span>{h.platform}</span>
+                <span className="text-zinc-500">{h.overall_score}/100</span>
               </div>
-            ))}
-          </div>
+              <span className="text-zinc-500 text-xs">
+                {new Date(h.created_at).toLocaleDateString("ar-DZ")}
+              </span>
+            </div>
+          ))}
         </div>
-      </div>
+      </section>
     </main>
   );
 }
