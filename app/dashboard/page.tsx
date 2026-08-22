@@ -703,8 +703,7 @@ export default function Dashboard() {
 </div>
 
         <div className="bg-[#141416] border border-zinc-800 rounded-2xl p-6 min-h-[500px]">
-          {!result && !loading && (
-  </div>
+          
             <div className="text-center py-24 text-zinc-500 text-sm">
               النتائج ستظهر هنا
             </div>
